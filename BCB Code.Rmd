@@ -3,14 +3,53 @@ title: "Affectiva Data"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-ggplot(mapping = )
+library(tidyverse)
+
+View(data_3_participants)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
 When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+To find out which value of targetA and targetB are smaller:
+```{r}
+data_3_participants$smaller<- ifelse(data_3_participants$targetA < data_3_participants$targetB, data_3_participants$targetA, data_3_participants$targetB)
+
+View(data_3_participants)
+```
+
+To find out which value of targetA and targetB are larger:
+```{r}
+data_3_participants$larger<- ifelse(data_3_participants$targetA > data_3_participants$targetB, data_3_participants$targetA, data_3_participants$targetB)
+
+View(data_3_participants)
+```
+
+To find the actualDifference between targetA and targetB:
+```{r}
+data_3_participants $ actualDifference <- data_3_participants$smaller/data_3_participants$larger
+
+View(data_3_participants)
+```
+
+To change dbl values to numerical values:
+```{r}
+data_3_participants $ actualDifference <- as.numeric(as.character(data_3_participants $ actualDifference))
+
+ data_3_participants $ input <- as.numeric(as.character(data_3_participants $ input))
+```
+
+To find the error:
+```{r}
+data_3_participants $ error <- data_3_participants $ actualDifference - data_3_participants $ input
+
+View(data_3_participants)
+```
+
+To find log error:
+```{r}
+
+```
+
+
