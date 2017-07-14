@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r}
+library(tidyverse)
+library(devtools)
+#install_github("clauswilke/ggjoy")
+library(ggplot2)
+library(ggjoy)
+
+emo <- read.csv('emotion_1_participant_jul12.csv', header=TRUE)
+#emo <- read.csv('emotion_3_participants_jul12.csv', header=TRUE)
+
+emo2 <- emo %>%  
+  gather(
+    `emotions_joy`, 
+    `emotions_sadness`, 
+    `emotions_disgust`, 
+    `emotions_contempt`, 
+    `emotions_anger`, 
+    `emotions_fear`, 
+    `emotions_surprise`, 
+    `emotions_valence`, 
+    `emotions_engagement`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+
+#View(diamonds)
+#View(emo)
+ggplot(emo2) +
+  geom_line(aes(x=time, y=value, colour=emotion)) +
+  facet_wrap(~ key, ncol=1)
+
+ggsave("emotions.pdf", width = 8.5, height = 10, units = "in")
+
+ggplot(emo2) +
+  geom_ridgeline(aes(x=time, height=value, y=emotion, group=emotion, scale=0.1)) +         
+  scale_y_discrete(expand=c(0.01, 0))
+
+
+  
+#ggplot(diamonds, aes(x=price, y=cut, group=cut)) +
+#     geom_joy(scale=4) + theme_joy() +
+#     scale_y_discrete(expand=c(0.01, 0)) +   # will generally have to set the `expand` option
+#     scale_x_continuous(expand=c(0, 0))
+```
