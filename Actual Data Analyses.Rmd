@@ -1,0 +1,24 @@
+---
+title: "Trial and Emotion Data Analysis"
+output: html_notebook
+---
+
+Error Charts Faceted by Participant
+```{r}
+trial_data1 <- read_csv("C:/Users/huifa/Desktop/BCB Research/trial_data1.csv")
+
+trial_data1 $ error <- trial_data1 $ actualDiff - trial_data1 $ input
+
+trial_data1 $ absError = abs(trial_data1 $ error)
+
+trial_data1 $ logError <- log2(abs(trial_data1 $ input - trial_data1 $ actualDiff) + 1/8)
+
+trial_data1 $ logError <- abs(trial_data1 $ logError)
+
+trial_data1 $ logError[trial_data1 $ logError == 3] <- 0
+
+d <- ggplot(trial_data1, aes(chartType, logError)) + geom_point()
+
+d + stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 2) + facet_wrap(~key, ncol = 1)
+```
+
