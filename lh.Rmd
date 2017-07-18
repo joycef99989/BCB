@@ -12,7 +12,8 @@ library(devtools)
 library(ggplot2)
 library(ggjoy)
 
-emo <- read.csv('emotion_1_participant_jul12.csv', header=TRUE)
+#emo <- read.csv('emotion_1_participant_jul12.csv', header=TRUE)
+emo <- read.csv('emotion_data1.csv', header=TRUE)
 #emo <- read.csv('emotion_3_participants_jul12.csv', header=TRUE)
 
 emo2 <- emo %>%  
@@ -36,11 +37,11 @@ ggplot(emo2) +
   geom_line(aes(x=time, y=value, colour=emotion)) +
   facet_wrap(~ key, ncol=1)
 
-ggsave("emotions.pdf", width = 8.5, height = 10, units = "in")
+ggsave("emotions.pdf", width = 16.5, height = 10, units = "in")
 
-ggplot(emo2) +
-  geom_ridgeline(aes(x=time, height=value, y=emotion, group=emotion, scale=0.1)) +         
-  scale_y_discrete(expand=c(0.01, 0))
+#ggplot(emo2) +
+#  geom_ridgeline(aes(x=time, height=value, y=emotion, group=emotion, scale=0.1)) +         
+#  scale_y_discrete(expand=c(0.01, 0))
 
 
   
