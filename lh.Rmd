@@ -18,19 +18,20 @@ library(ggjoy)
 
 Emotion Tinkering
 ```{r}
-emo <- read.csv('emotionData-18-Jul-2017-multiple.csv', header=TRUE)
+#emo <- read.csv('emotionData-18-Jul-2017-multiple.csv', header=TRUE)
+emo <- read.csv('emotion-19-Jul-2017.csv', header=TRUE)
 #View(emo)
 
 # reshape for ggplot
 emo2 <- emo %>%  
   gather(
-#    `emotions_joy`, 
-#    `emotions_sadness`, 
-#    `emotions_disgust`, 
-#    `emotions_contempt`, 
-#    `emotions_anger`, 
-#    `emotions_fear`, 
-#    `emotions_surprise`, 
+    `emotions_joy`, 
+    `emotions_sadness`, 
+    `emotions_disgust`, 
+    `emotions_contempt`, 
+    `emotions_anger`, 
+    `emotions_fear`, 
+    `emotions_surprise`, 
     `emotions_valence`, 
     `emotions_engagement`, 
     key = "emotion", 
@@ -69,14 +70,23 @@ ggsave("emotions.pdf", width = 100, height = 10, units = "in", limitsize=FALSE)
 
 Trial tinkering
 ```{r}
-trials <- read.csv('trialData-18-Jul-2017-multiple.csv', header=TRUE)
+trials <- read.csv('trial-19-Jul-2017.csv', header=TRUE)
 
 # log transform
 trials$logError <- log2(abs(trials$input*100 - trials$actualDiff*100) + 1/8)
 trials$logError[trials$logError == -3] <- 0
 
+# participant puts 50, actual is 70, should be -20
+# participant puts 50, actual is 30, should be +20
+trials$rawError <- trials$input*100 - trials$actualDiff*100 
+
+trials %>% 
+  group_by(key) %>% 
+  filter( quantile(rawError, 0.25) < rawError & quantile(rawError, 0.75) > rawError )
+
 # verify
 summary(trials$logError)
+summary(trials$rawError)
 
 # attempt to render in diff window (failed)
 #library(Cairo)
@@ -107,6 +117,7 @@ Moving Averages of Emotion Data
 ```{r}
 library(zoo)
 
+# valence MA
 emo %>% 
   arrange(key,time) %>%
   mutate(valence_ma=rollapply(emotions_valence,10,mean,align='right',fill=NA)) %>% 
@@ -120,11 +131,112 @@ emo %>%
     geom_line(aes(x=time, y=value, colour=emotion)) +
     facet_wrap(~ key, ncol=1)
 
-
 ggsave("valence-moving-average.pdf", width = 30, height = 10, units = "in", limitsize=FALSE)
 
+# engagement MA
+emo %>% 
+  arrange(key,time) %>%
+  mutate(engagement_ma=rollapply(emotions_engagement,10,mean,align='right',fill=NA)) %>% 
+  gather(
+    `emotions_engagement`, 
+    `engagement_ma`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key) %>% 
+  ggplot() + 
+    geom_line(aes(x=time, y=value, colour=emotion))
 
 
+ggsave("engagement-moving-average.pdf", width = 30, height = 10, units = "in", limitsize=FALSE)
+
+```
+
+Rolling up on participants
+```{r}
+
+emo %>% 
+  arrange(key,time) %>%
+  mutate(engagement_ma=rollapply(emotions_engagement,10,mean,align='right',fill=NA)) %>% 
+  mutate(valence_ma=rollapply(emotions_valence,10,mean,align='right',fill=NA)) %>% 
+  group_by(key) %>% 
+  summarise(
+    average_engagement_ma = mean(engagement_ma, na.rm=TRUE),
+    average_valence_ma = mean(valence_ma, na.rm=TRUE),
+    average_engagement = mean(emotions_engagement, na.rm=TRUE),
+    average_valence = mean(emotions_valence, na.rm=TRUE),
+    variance_engagement = var(emotions_engagement, na.rm=TRUE),
+    variance_valence = var(emotions_valence, na.rm=TRUE),
+    variance_engagement_ma = var(engagement_ma, na.rm=TRUE),
+    variance_valence_ma = var(valence_ma, na.rm=TRUE)
+  ) %>% 
+  left_join(trials, by="key") %>% 
+  group_by(key) %>% 
+  filter( chartType=="Bubble" ) -> emo_mod 
+#  filter(  ) -> emo_mod 
+#  filter( chartType!="Bubble" ) -> emo_mod 
+
+# correlation summary
+cor(emo_mod$rawError, emo_mod$average_valence)
+# fit summary variance and valence
+fit <- lm(rawError ~ average_valence, data=emo_mod)
+summary(fit)
+  
+#  filter( quantile(logError, 0.25) < logError & quantile(logError, 0.75) > logError ) %>% 
+#  filter( quantile(rawError, 0.25) < rawError & quantile(rawError, 0.75) > rawError ) %>% 
+
+emo_mod %>% 
+  ggplot(aes(x=variance_valence_ma, y=rawError)) + 
+    geom_point( )
+
+emo_mod %>% 
+  summarise(
+    variance_raw = var(rawError),
+    mean_raw = mean(rawError),
+    variance_error = var(logError),
+    mean_error = mean(logError),
+    valence = mean(average_valence),
+    var_valence = mean(variance_valence),
+    engagement = mean(average_engagement),
+    var_engagement = mean(variance_engagement)
+  ) %>% 
+  arrange(variance_error) -> emo_table
+
+emo_table %>% arrange(var_valence)
+
+# correlation summary
+cor(emo_table$mean_error, emo_table$valence)
+# fit summary variance and valence
+fit <- lm(mean_error ~ valence, data=emo_table)
+summary(fit)
+# error and valence
+emo_table %>% 
+  ggplot(aes(x=variance_raw, y=var_valence)) + 
+    geom_point( )
+# variance of error and valence
+emo_table %>% 
+  ggplot(aes(x=variance_error, y=valence)) + 
+    geom_point( )
+  
+library(corrr)
+
+emo_mod %>% 
+  ungroup() %>% 
+  select(average_engagement, average_valence, variance_engagement, variance_valence, logError, rawError) %>% 
+  correlate() %>% rearrange() %>% shave() %>% fashion()
+
+emo_table %>% select(-key) %>% correlate() %>% rearrange() %>% shave() %>% fashion()
+emo_table %>% select(-key) %>% correlate() %>% rplot()
+emo_table %>% select(-key) %>% correlate() %>% network_plot(min_cor = .5)
+#  ggplot(aes(x=average_valence_ma, y=logError)) + 
+#    geom_point( alpha=1/10 ) +
+#    stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) +
+#    facet_wrap(~ chartType, ncol=1) 
+
+#ggsave("by-emotion.pdf", width = 3, height = 5, units = "in", limitsize=FALSE)
+```
+
+TODO over/under estimation?
+```{r}
 
 ```
 
