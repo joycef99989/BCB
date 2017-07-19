@@ -5,48 +5,128 @@ output:
   html_notebook: default
 ---
 
+Libraries 
+
 ```{r}
 library(tidyverse)
 library(devtools)
-#install_github("clauswilke/ggjoy")
 library(ggplot2)
+#install_github("clauswilke/ggjoy")
 library(ggjoy)
+```
 
-#emo <- read.csv('emotion_1_participant_jul12.csv', header=TRUE)
-emo <- read.csv('emotion_data1.csv', header=TRUE)
-#emo <- read.csv('emotion_3_participants_jul12.csv', header=TRUE)
 
+Emotion Tinkering
+```{r}
+emo <- read.csv('emotionData-18-Jul-2017-multiple.csv', header=TRUE)
+#View(emo)
+
+# reshape for ggplot
 emo2 <- emo %>%  
   gather(
-    `emotions_joy`, 
-    `emotions_sadness`, 
-    `emotions_disgust`, 
-    `emotions_contempt`, 
-    `emotions_anger`, 
-    `emotions_fear`, 
-    `emotions_surprise`, 
+#    `emotions_joy`, 
+#    `emotions_sadness`, 
+#    `emotions_disgust`, 
+#    `emotions_contempt`, 
+#    `emotions_anger`, 
+#    `emotions_fear`, 
+#    `emotions_surprise`, 
     `emotions_valence`, 
     `emotions_engagement`, 
     key = "emotion", 
     value = "value") %>%
   select(emotion, value, time, key)
 
-#View(diamonds)
-#View(emo)
+# Log transform
+#emo2$value <- emo2$value + abs(min(emo2$value)) + 1
+#summary(emo2$value)
+#emo2$value <- log(emo2$value)
+
+# Sampling
+#nrow(emo2)
+#emo2 <- emo2[sample(1:nrow(emo2), 10000, replace=FALSE),]
+#nrow(emo2)
+
+
+# line chart (good)
 ggplot(emo2) +
   geom_line(aes(x=time, y=value, colour=emotion)) +
   facet_wrap(~ key, ncol=1)
 
-ggsave("emotions.pdf", width = 16.5, height = 10, units = "in")
+# area chart (SLOW)
+#ggplot(emo2, aes(time, value, group=emotion)) +
+#  geom_area(aes(fill=emotion)) +
+#  facet_wrap(~ key, ncol=1)
 
+# save as large pdf
+ggsave("emotions.pdf", width = 100, height = 10, units = "in", limitsize=FALSE)
+
+# joy plot (crap, does not take into account both value and time well)
 #ggplot(emo2) +
 #  geom_ridgeline(aes(x=time, height=value, y=emotion, group=emotion, scale=0.1)) +         
 #  scale_y_discrete(expand=c(0.01, 0))
-
-
-  
-#ggplot(diamonds, aes(x=price, y=cut, group=cut)) +
-#     geom_joy(scale=4) + theme_joy() +
-#     scale_y_discrete(expand=c(0.01, 0)) +   # will generally have to set the `expand` option
-#     scale_x_continuous(expand=c(0, 0))
 ```
+
+Trial tinkering
+```{r}
+trials <- read.csv('trialData-18-Jul-2017-multiple.csv', header=TRUE)
+
+# log transform
+trials$logError <- log2(abs(trials$input*100 - trials$actualDiff*100) + 1/8)
+trials$logError[trials$logError == -3] <- 0
+
+# verify
+summary(trials$logError)
+
+# attempt to render in diff window (failed)
+#library(Cairo)
+#Cairo::CairoWin(width=1280, height=768)
+
+# point plot of trial perf by participant
+ggplot(trials, aes(x=chartType, y=logError)) +
+  geom_point( alpha=1/10 ) +
+  stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) + 
+  facet_wrap(~ key, ncol=1)
+
+# Save pdf
+ggsave("trials.pdf", width = 10, height = 10, units = "in", limitsize=FALSE)
+
+```
+
+Streamgraph
+```{r}
+library(streamgraph)
+
+# streamgraph (SLOOOOOOOOOW do not run)
+#emo2 %>%
+#  streamgraph("emotion", "value", "time", scale="continuous") %>%
+#  sg_legend(show=TRUE, label="Emotions")
+```
+
+Moving Averages of Emotion Data
+```{r}
+library(zoo)
+
+emo %>% 
+  arrange(key,time) %>%
+  mutate(valence_ma=rollapply(emotions_valence,10,mean,align='right',fill=NA)) %>% 
+  gather(
+    `emotions_valence`, 
+    `valence_ma`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key) %>% 
+  ggplot() + 
+    geom_line(aes(x=time, y=value, colour=emotion)) +
+    facet_wrap(~ key, ncol=1)
+
+
+ggsave("valence-moving-average.pdf", width = 30, height = 10, units = "in", limitsize=FALSE)
+
+
+
+
+```
+
+
+
