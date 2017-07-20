@@ -1,11 +1,15 @@
 ---
 title: "R Notebook"
 output:
-  html_document: default
+  html_document:
+    toc: true
+    toc_depth: 2
   html_notebook: default
+  pdf_document: default
 ---
 
-Libraries 
+# Setup
+## Libraries 
 
 ```{r}
 library(tidyverse)
@@ -16,13 +20,17 @@ library(ggjoy)
 ```
 
 
-Emotion Tinkering
-```{r}
-#emo <- read.csv('emotionData-18-Jul-2017-multiple.csv', header=TRUE)
-emo <- read.csv('emotion-19-Jul-2017.csv', header=TRUE)
-#View(emo)
+## Data load
 
-# reshape for ggplot
+```{r}
+emo <- read.csv('emotion-19-Jul-2017.csv', header=TRUE)
+trials <- read.csv('trial-19-Jul-2017.csv', header=TRUE)
+```
+
+# Emotion data
+## Reshape the emotion data for plotting
+
+```{r}
 emo2 <- emo %>%  
   gather(
     `emotions_joy`, 
@@ -37,84 +45,30 @@ emo2 <- emo %>%
     key = "emotion", 
     value = "value") %>%
   select(emotion, value, time, key)
+```
 
-# Log transform
-#emo2$value <- emo2$value + abs(min(emo2$value)) + 1
-#summary(emo2$value)
-#emo2$value <- log(emo2$value)
-
-# Sampling
-#nrow(emo2)
-#emo2 <- emo2[sample(1:nrow(emo2), 10000, replace=FALSE),]
-#nrow(emo2)
-
-
+## Plot emotion data over time
+```{r, fig.width=6, fig.asp=2}
 # line chart (good)
 ggplot(emo2) +
   geom_line(aes(x=time, y=value, colour=emotion)) +
-  facet_wrap(~ key, ncol=1)
-
-# area chart (SLOW)
-#ggplot(emo2, aes(time, value, group=emotion)) +
-#  geom_area(aes(fill=emotion)) +
-#  facet_wrap(~ key, ncol=1)
-
-# save as large pdf
-ggsave("emotions.pdf", width = 100, height = 10, units = "in", limitsize=FALSE)
-
-# joy plot (crap, does not take into account both value and time well)
-#ggplot(emo2) +
-#  geom_ridgeline(aes(x=time, height=value, y=emotion, group=emotion, scale=0.1)) +         
-#  scale_y_discrete(expand=c(0.01, 0))
+  facet_wrap(~ key, nrow=1) +
+  coord_flip()
 ```
 
-Trial tinkering
-```{r}
-trials <- read.csv('trial-19-Jul-2017.csv', header=TRUE)
+## Emotion bar plots
+```{r, fig.width=12, fig.asp=1.2, out.width = "50%"}
 
-# log transform
-trials$logError <- log2(abs(trials$input*100 - trials$actualDiff*100) + 1/8)
-trials$logError[trials$logError == -3] <- 0
-
-# participant puts 50, actual is 70, should be -20
-# participant puts 50, actual is 30, should be +20
-trials$rawError <- trials$input*100 - trials$actualDiff*100 
-
-trials %>% 
-  group_by(key) %>% 
-  filter( quantile(rawError, 0.25) < rawError & quantile(rawError, 0.75) > rawError )
-
-# verify
-summary(trials$logError)
-summary(trials$rawError)
-
-# attempt to render in diff window (failed)
-#library(Cairo)
-#Cairo::CairoWin(width=1280, height=768)
-
-# point plot of trial perf by participant
-ggplot(trials, aes(x=chartType, y=logError)) +
-  geom_point( alpha=1/10 ) +
-  stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) + 
-  facet_wrap(~ key, ncol=1)
-
-# Save pdf
-ggsave("trials.pdf", width = 10, height = 10, units = "in", limitsize=FALSE)
-
+ggplot(emo2) +
+  geom_col(aes(x=emotion, y=value, fill=emotion)) +
+  ylim(-99, 99) +
+  facet_wrap(~ key, ncol=2) 
+#  geom_line(aes(x=time, y=value, colour=emotion)) +
+#  coord_flip()
 ```
 
-Streamgraph
-```{r}
-library(streamgraph)
-
-# streamgraph (SLOOOOOOOOOW do not run)
-#emo2 %>%
-#  streamgraph("emotion", "value", "time", scale="continuous") %>%
-#  sg_legend(show=TRUE, label="Emotions")
-```
-
-Moving Averages of Emotion Data
-```{r}
+## Transform Test: Moving Averages of Emotion Data
+```{r, fig.width=6, fig.asp=0.618}
 library(zoo)
 
 # valence MA
@@ -131,28 +85,45 @@ emo %>%
     geom_line(aes(x=time, y=value, colour=emotion)) +
     facet_wrap(~ key, ncol=1)
 
-ggsave("valence-moving-average.pdf", width = 30, height = 10, units = "in", limitsize=FALSE)
+```
 
-# engagement MA
-emo %>% 
-  arrange(key,time) %>%
-  mutate(engagement_ma=rollapply(emotions_engagement,10,mean,align='right',fill=NA)) %>% 
-  gather(
-    `emotions_engagement`, 
-    `engagement_ma`, 
-    key = "emotion", 
-    value = "value") %>%
-  select(emotion, value, time, key) %>% 
-  ggplot() + 
-    geom_line(aes(x=time, y=value, colour=emotion))
+# Trial data
+## Trial transforms
 
+```{r}
+# log transform
+trials$logError <- log2(abs(trials$input*100 - trials$actualDiff*100) + 1/8)
+trials$logError[trials$logError == -3] <- 0
 
-ggsave("engagement-moving-average.pdf", width = 30, height = 10, units = "in", limitsize=FALSE)
+# participant puts 50, actual is 70, should be -20
+# participant puts 50, actual is 30, should be +20
+trials$rawError <- trials$input*100 - trials$actualDiff*100 
+
+# quantile filter
+#trials %>% 
+#  group_by(key) %>% 
+#  filter( quantile(rawError, 0.25) < rawError & quantile(rawError, 0.75) > rawError )
+
+# verify
+summary(trials$logError)
+summary(trials$rawError)
 
 ```
 
-Rolling up on participants
-```{r}
+## Plot trial performance per participant
+```{r, fig.width=6, fig.asp=2}
+ggplot(trials, aes(x=chartType, y=logError)) +
+  geom_point( alpha=1/10 ) +
+  stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) + 
+  facet_wrap(~ key, ncol=1)
+```
+
+
+
+# Trials and Emotion
+## Joining Trials and Emotion
+
+```{r, fig.width=6, fig.asp=0.618}
 
 emo %>% 
   arrange(key,time) %>%
@@ -171,23 +142,33 @@ emo %>%
   ) %>% 
   left_join(trials, by="key") %>% 
   group_by(key) %>% 
-  filter( chartType=="Bubble" ) -> emo_mod 
-#  filter(  ) -> emo_mod 
+  filter(  ) -> emo_mod 
 #  filter( chartType!="Bubble" ) -> emo_mod 
+
+```
+
+## Exploring correlations trial-level
+```{r, fig.width=6, fig.asp=0.618}
+library(corrr)
 
 # correlation summary
 cor(emo_mod$rawError, emo_mod$average_valence)
 # fit summary variance and valence
 fit <- lm(rawError ~ average_valence, data=emo_mod)
 summary(fit)
-  
-#  filter( quantile(logError, 0.25) < logError & quantile(logError, 0.75) > logError ) %>% 
-#  filter( quantile(rawError, 0.25) < rawError & quantile(rawError, 0.75) > rawError ) %>% 
 
 emo_mod %>% 
   ggplot(aes(x=variance_valence_ma, y=rawError)) + 
     geom_point( )
 
+emo_mod %>% 
+  ungroup() %>% 
+  select(average_engagement, average_valence, variance_engagement, variance_valence, logError, rawError) %>% 
+  correlate() %>% rearrange() %>% shave() %>% fashion()
+```
+
+## Roll trial data into participant-level data
+```{r}
 emo_mod %>% 
   summarise(
     variance_raw = var(rawError),
@@ -198,47 +179,36 @@ emo_mod %>%
     var_valence = mean(variance_valence),
     engagement = mean(average_engagement),
     var_engagement = mean(variance_engagement)
-  ) %>% 
-  arrange(variance_error) -> emo_table
+  ) -> emo_table
 
 emo_table %>% arrange(var_valence)
+```
+
+## Exploring correlations participant-level
+```{r, fig.width=6, fig.asp=0.618}
 
 # correlation summary
 cor(emo_table$mean_error, emo_table$valence)
 # fit summary variance and valence
 fit <- lm(mean_error ~ valence, data=emo_table)
 summary(fit)
-# error and valence
+
+# plot error and valence
 emo_table %>% 
   ggplot(aes(x=variance_raw, y=var_valence)) + 
     geom_point( )
-# variance of error and valence
-emo_table %>% 
-  ggplot(aes(x=variance_error, y=valence)) + 
-    geom_point( )
-  
-library(corrr)
-
-emo_mod %>% 
-  ungroup() %>% 
-  select(average_engagement, average_valence, variance_engagement, variance_valence, logError, rawError) %>% 
-  correlate() %>% rearrange() %>% shave() %>% fashion()
 
 emo_table %>% select(-key) %>% correlate() %>% rearrange() %>% shave() %>% fashion()
 emo_table %>% select(-key) %>% correlate() %>% rplot()
 emo_table %>% select(-key) %>% correlate() %>% network_plot(min_cor = .5)
-#  ggplot(aes(x=average_valence_ma, y=logError)) + 
-#    geom_point( alpha=1/10 ) +
-#    stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) +
-#    facet_wrap(~ chartType, ncol=1) 
-
-#ggsave("by-emotion.pdf", width = 3, height = 5, units = "in", limitsize=FALSE)
 ```
 
-TODO over/under estimation?
-```{r}
-
+# Spare
+## Streamgraph
+```{r eval=FALSE}
+#library(streamgraph)
+# streamgraph (SLOOOOOOOOOW do not run)
+#emo2 %>%
+#  streamgraph("emotion", "value", "time", scale="continuous") %>%
+#  sg_legend(show=TRUE, label="Emotions")
 ```
-
-
-
