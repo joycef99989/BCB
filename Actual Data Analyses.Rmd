@@ -3,22 +3,243 @@ title: "Trial and Emotion Data Analysis"
 output: html_notebook
 ---
 
-Error Charts Faceted by Participant
 ```{r}
-trial_data1 <- read_csv("C:/Users/huifa/Desktop/BCB Research/trial_data1.csv")
+trial_data2 <- read_csv("C:/Users/huifa/Desktop/BCB Research/trial_data2.csv")
+trial_data2 $ error <- trial_data2 $ actualDiff - trial_data2 $ input
+trial_data2 $ absError = abs(trial_data2 $ error)
+trial_data2 $ logError <- log2(abs(trial_data2 $ input - trial_data2 $ actualDiff) + 1/8)
+trial_data2 $ logError <- abs(trial_data2 $ logError)
+trial_data2 $ logError[trial_data2 $ logError == 3] <- 0
+d <- ggplot(trial_data2, aes(chartType, logError)) + geom_point()
+d + stat_summary(fun.data = "mean_cl_boot", colour = "red", size = .55) + facet_wrap(~key, ncol = 1) +
+  labs(title ="Log Mean Error Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+ggsave("trials.pdf", width = 4, height = 10, units = "in")
+```
 
-trial_data1 $ error <- trial_data1 $ actualDiff - trial_data1 $ input
+Emotion Charts Faceted by Participant
+```{r}
+library(tidyverse)
+library(devtools)
+library(ggplot2)
 
-trial_data1 $ absError = abs(trial_data1 $ error)
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_joy`, 
+    `emotions_sadness`, 
+    `emotions_disgust`, 
+    `emotions_contempt`, 
+    `emotions_anger`, 
+    `emotions_fear`, 
+    `emotions_surprise`, 
+    `emotions_valence`, 
+    `emotions_engagement`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+ggplot(emo2) +
+  geom_line(aes(x=time, y=value, colour=emotion)) +
+  facet_wrap(~ key, ncol=1) +
+  labs(title ="Affectiva Emotions Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+ggsave("emotions.pdf", width = 20, height = 10, units = "in")
+```
 
-trial_data1 $ logError <- log2(abs(trial_data1 $ input - trial_data1 $ actualDiff) + 1/8)
+Survey Data Charts
+```{r}
+survey <- read.csv('C:/Users/huifa/Desktop/BCB Research/survey_data.csv', header=TRUE)
 
-trial_data1 $ logError <- abs(trial_data1 $ logError)
+survey2 <- survey %>%  
+  gather(
+    `joy`, 
+    `sadness`, 
+    `disgust`, 
+    `contempt`, 
+    `anger`, 
+    `fear`, 
+    `surprise`, 
+    `valence`, 
+    `engagement`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
 
-trial_data1 $ logError[trial_data1 $ logError == 3] <- 0
+ggplot(survey2, aes(x=emotion, y=value, fill=emotion)) + geom_bar(stat="identity") + facet_wrap(~ key, ncol=2) + 
+  labs(title ="Survey Responses From Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
 
-d <- ggplot(trial_data1, aes(chartType, logError)) + geom_point()
+ggsave("survey.pdf", width = 16, height = 10, units = "in")
 
-d + stat_summary(fun.data = "mean_cl_boot", colour = "red", size = 2) + facet_wrap(~key, ncol = 1)
+```
+
+Bar Chart for Emotions
+```{r}
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+
+emo$joy <- mean(emo$emotions_joy) / 100000 * 1.5
+emo$sadness <- mean(emo$emotions_sadness)/100000* 1.5
+emo$disgust <- mean(emo$emotions_disgust)/100000* 1.5
+emo$contempt <- mean(emo$emotions_contempt)/100000* 1.5
+emo$anger <- mean(emo$emotions_anger)/100000* 1.5
+emo$fear <- mean(emo$emotions_fear)/100000* 1.5
+emo$surprise <- mean(emo$emotions_surprise)/100000* 1.5
+emo$valence <- mean(emo$emotions_valence)/ 100000* 1.5
+emo$engagement <- mean(emo$emotions_engagement)/ 100000* 1.5
+
+emo2 <- emo %>%  
+  gather(
+    `joy`, 
+    `sadness`, 
+    `disgust`, 
+    `contempt`, 
+    `anger`, 
+    `fear`, 
+    `surprise`, 
+    `valence`, 
+    `engagement`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+
+ggplot(emo2) +
+geom_bar(aes(x=emotion, y=value, fill=emotion), stat = "identity") +
+  facet_wrap(~ key, ncol=2) + 
+  labs(title ="Mean Affectiva Emotions Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+
+ggsave("barchart.pdf", width = 14, height = 20, units = "in")
+```
+
+Negative Emotions Graphed
+```{r}
+library(tidyverse)
+library(devtools)
+library(ggplot2)
+
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_sadness`, 
+    `emotions_disgust`, 
+    `emotions_contempt`, 
+    `emotions_anger`, 
+    `emotions_fear`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+ggplot(emo2) +
+  geom_line(aes(x=time, y=value, colour=emotion)) +
+  facet_wrap(~ key, ncol=1) +
+  labs(title ="Negative Affectiva Emotions Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+ggsave("emotionsneg.pdf", width = 20, height = 9, units = "in")
+```
+
+Positive Emotions Graphed
+```{r}
+library(tidyverse)
+library(devtools)
+library(ggplot2)
+
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_joy`, 
+    `emotions_surprise`,
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+ggplot(emo2) +
+  geom_line(aes(x=time, y=value, colour=emotion)) +
+  facet_wrap(~ key, ncol=1) +
+  labs(title ="Positive Affectiva Emotions Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+ggsave("emotionspos.pdf", width = 20, height = 10, units = "in")
+```
+
+Engagement and Valence Graphed
+```{r}
+library(tidyverse)
+library(devtools)
+library(ggplot2)
+
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_valence`, 
+    `emotions_engagement`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+ggplot(emo2) +
+  geom_line(aes(x=time, y=value, colour=emotion)) +
+  facet_wrap(~ key, ncol=1) +
+  labs(title ="Valence and Engagement Across Participants", subtitle="June 26, 2017 to July 28, 2017") +
+  theme_bw()
+ggsave("emotionsvalandeng.pdf", width = 20, height = 9, units = "in")
+```
+Error Mean Values
+```{r}
+trial_data2 <- read_csv("C:/Users/huifa/Desktop/BCB Research/trial_data2.csv")
+
+data_3_participants $ actualDifference <- as.numeric(as.character(data_3_participants $ actualDifference))
+ data_3_participants $ input <- as.numeric(as.character(data_3_participants $ input))
+ 
+trial_data2 $ error <- trial_data2 $ actualDiff - trial_data2 $ input
+trial_data2 $ absError = abs(trial_data2 $ error)
+trial_data2 $ logError <- log2(abs(trial_data2 $ input - trial_data2 $ actualDiff) + 1/8)
+trial_data2 $ logError <- abs(trial_data2 $ logError)
+trial_data2 $ logError[trial_data2 $ logError == 3] <- 0
+
+mean(trial_data2 $ logError)
+```
+
+Mean Negative Emotions
+```{r}
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_sadness`, 
+    `emotions_disgust`, 
+    `emotions_contempt`, 
+    `emotions_anger`, 
+    `emotions_fear`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+
+ emo2 $ value <- as.numeric(as.character(emo2 $ value))
+ 
+ mean(emo2 $ value)
+ 
+```
+
+Another Way to Calculate Mean Negative Emotions
+```{r}
+y <- c(Jack$emotions_anger, Jack$emotions_contempt, Jack$emotions_disgust, Jack$emotions_fear, Jack$emotions_sadness)
+mean(y)
+```
+
+Mean Positive Emotions
+```{r}
+emo <- read.csv('C:/Users/huifa/Desktop/BCB Research/emotion_data2.csv', header=TRUE)
+emo2 <- emo %>%  
+  gather(
+    `emotions_surprise`, 
+    `emotions_joy`, 
+    key = "emotion", 
+    value = "value") %>%
+  select(emotion, value, time, key)
+
+ emo2 $ value <- as.numeric(as.character(emo2 $ value))
+ 
+ mean(emo2 $ value)
+```
+
+Another Way to Calculate Mean Positive Emotions
+```{r}
+x <- c(Jack$emotions_joy, Jack$emotions_surprise)
+mean(x)
 ```
 
