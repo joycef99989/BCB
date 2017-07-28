@@ -1,6 +1,0 @@
-To find the mean of the positive emotions:
-x <- c(Jack$emotions_joy, Jack$emotions_surprise)
-mean(x)
-to find the mean of the negative emotions:
-y <- c(Jack$emotions_anger, Jack$emotions_contempt, Jack$emotions_disgust, Jack$emotions_fear, Jack$emotions_sadness)
-mean(y)
