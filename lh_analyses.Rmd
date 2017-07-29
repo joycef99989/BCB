@@ -15,7 +15,6 @@ output:
 library(tidyverse)
 library(devtools)
 library(ggplot2)
-#install_github("clauswilke/ggjoy")
 library(ggjoy)
 ```
 
@@ -23,9 +22,12 @@ library(ggjoy)
 ## Data load
 
 ```{r}
-emo <- read.csv('emotion-19-Jul-2017.csv', header=TRUE)
-trials <- read.csv('trial-19-Jul-2017.csv', header=TRUE)
+emo <- read.csv('data/emotion-19-Jul-2017.csv', header=TRUE)
+trials <- read.csv('data/trial-19-Jul-2017.csv', header=TRUE)
+survey <- read.csv('data/survey_data.csv', header=TRUE)
 ```
+
+
 
 # Emotion data
 ## Reshape the emotion data for plotting
@@ -213,4 +215,61 @@ emo_table %>% select(-key) %>% correlate() %>% network_plot(min_cor = .5)
 #emo2 %>%
 #  streamgraph("emotion", "value", "time", scale="continuous") %>%
 #  sg_legend(show=TRUE, label="Emotions")
+```
+
+## Time reshape attempt
+```{r time_reshape, fig.width=6, fig.asp=1}
+
+#shift <- function(x, n){
+#  c(x[-(seq(n))], rep(NA, n))
+#}
+#
+#trials$endtime <- shift(trials$time, 1)
+#trials$endtime[trials$time - trials$endtime > 0] <- NA
+#
+#trials %>% 
+#  group_by(key) %>% 
+#  select(key, num, matches("time"))
+
+gt <- trials %>%
+  group_by(key) %>% 
+  mutate(start=floor(time),
+         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
+  group_by(start,end) 
+
+ge <- emo %>%
+  group_by(key) %>% 
+  mutate(start=floor(time),
+         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
+  group_by(start,end) 
+
+ge <- data.table(ge)
+gt <- data.table(gt)
+
+require(data.table)
+setkey(ge, key, start, end)
+joined <- foverlaps(gt, ge, type="any") ## return overlap join
+
+View(joined)
+
+grouped <- joined %>% 
+  group_by(key, num, chartType) %>% 
+  summarise(
+    mean_valence = mean(emotions_valence),
+    mean_engagement = mean(emotions_engagement),
+    mean_abs_valence = mean(abs(emotions_valence)),
+    logError = mean(logError)
+  )
+
+grouped %>% 
+  filter(chartType=="Bar") %>% 
+  ggplot( aes(x=mean_engagement, y=logError) ) +
+    geom_point() +
+    stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) +
+    geom_smooth(method=lm) 
+
+grouped %>% 
+  ggplot( aes(x=num, y=logError) ) +
+    geom_line() 
+  
 ```
