@@ -8,6 +8,35 @@ output:
   pdf_document: default
 ---
 
+# notes
+
+## 29-Jul-2017
+Futzing with emotion timelines.
+Merging trial and emo time data.
+Lots of trouble figuring out when trials start and end.
+Apparently time is "end" in the trials data, based on Shijian chat.
+
+Made a grid of trials, w/ timeline of emotion values inside and color corresponding to error.
+
+Using it to figure out what features may predict error.
+Surprise, smile might be leads.
+Focusing on `j59m5zpw` but moving to others as needed.
+
+Filtering out [3] because they're high error and crazy on every emotion scale.
+
+Notes on switching expressions around:
+- surprise seems to come around errors; could this be yawns?
+- smile interesting but not much on [2] or [1]'s errors
+- expressions_lipCornerDepressor on [5]?
+- expressions_jawDrop [1], [2], [5], ~ [4] [6]
+- filter out [3] from analyses-- insane on every metric
+
+Next steps:
+- build models with the features above as classifiers? 
+    - classifiers of what type of error?
+- tinker with moving averages-- blur the trials a bit?
+- build a bib of papers we want to include?
+
 # Setup
 ## Libraries 
 
@@ -16,6 +45,7 @@ library(tidyverse)
 library(devtools)
 library(ggplot2)
 library(ggjoy)
+require(data.table)
 ```
 
 
@@ -26,7 +56,6 @@ emo <- read.csv('data/emotion-19-Jul-2017.csv', header=TRUE)
 trials <- read.csv('data/trial-19-Jul-2017.csv', header=TRUE)
 survey <- read.csv('data/survey_data.csv', header=TRUE)
 ```
-
 
 
 # Emotion data
@@ -220,56 +249,130 @@ emo_table %>% select(-key) %>% correlate() %>% network_plot(min_cor = .5)
 ## Time reshape attempt
 ```{r time_reshape, fig.width=6, fig.asp=1}
 
-#shift <- function(x, n){
-#  c(x[-(seq(n))], rep(NA, n))
-#}
-#
-#trials$endtime <- shift(trials$time, 1)
-#trials$endtime[trials$time - trials$endtime > 0] <- NA
-#
-#trials %>% 
+shift <- function(x, n){
+  c(x[-(seq(n))], rep(NA, n))
+}
+
+# needed to reverse this. minus time for first one, shift differently, etc.
+# make start variable
+#trials$start <- trials$time
+## shift values "up" to make end variable
+#trials$end <- shift(trials$start, 1)
+## take care of the NA this makes at the end (nothing to shift up from)
+#trials$end[is.na(trials$end)] <- trials$start[is.na(trials$end)]
+## add a buffer of 10 to the end of the last trial
+#trials$end[trials$start - trials$end > 0] <- trials$start[trials$start - trials$end > 0] + 10
+
+trials %>% 
+  select(key, num, time, start, end)
+
+# make trial end variable
+trials$end <- trials$time
+# shift values "down" to make start variable
+trials <- trials %>% 
+  mutate(
+    start = lag(end)
+  )
+# take care of the NA this makes at the start (nothing to shift up from)
+trials$start[is.na(trials$start)] <- trials$end[is.na(trials$start)] - 10
+# add a buffer of 10 to the end of the last trial
+trials$start[trials$start - trials$end > 0] <- trials$end[trials$start - trials$end > 0] - 10
+
+
+gt <- trials %>% 
+  group_by(key, start, end)
+
+# repeat the above for emotions dataset, 3sec buffer at end
+emo$start <- emo$time
+# shift values "up" to make end variable
+emo$end <- shift(emo$start, 1)
+# take care of the NA this makes at the end (nothing to shift up from)
+emo$end[is.na(emo$end)] <- emo$start[is.na(emo$end)]
+# add a buffer of 10 to the end of the last trial
+emo$end[emo$start - emo$end > 0] <- emo$start[emo$start - emo$end > 0] + 3
+
+ge <- emo %>% 
+  group_by(key, start, end)
+
+# this only goes +1 second for end time. not ideal
+#gt <- trials %>%
 #  group_by(key) %>% 
-#  select(key, num, matches("time"))
+#  mutate(start=floor(time),
+#         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
+#  group_by(start,end) 
 
-gt <- trials %>%
-  group_by(key) %>% 
-  mutate(start=floor(time),
-         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
-  group_by(start,end) 
-
-ge <- emo %>%
-  group_by(key) %>% 
-  mutate(start=floor(time),
-         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
-  group_by(start,end) 
+#ge <- emo %>%
+#  group_by(key) %>% 
+#  mutate(start=floor(time),
+#         end=ifelse(ceiling(time)==start,start+1,ceiling(time))) %>%
+#  group_by(start,end) 
 
 ge <- data.table(ge)
 gt <- data.table(gt)
 
-require(data.table)
 setkey(ge, key, start, end)
 joined <- foverlaps(gt, ge, type="any") ## return overlap join
 
 View(joined)
 
 grouped <- joined %>% 
+  filter(key!=ppl[3]) %>% 
   group_by(key, num, chartType) %>% 
   summarise(
     mean_valence = mean(emotions_valence),
+    var_valence = var(emotions_valence),
     mean_engagement = mean(emotions_engagement),
     mean_abs_valence = mean(abs(emotions_valence)),
-    logError = mean(logError)
+    mean_jaw_drop = mean(expressions_jawDrop),
+    var_jaw_drop = var(expressions_jawDrop),
+    logError = mean(logError),
+    rawError = mean(rawError)
   )
+```
+
+## Emotion timelines
+
+```{r trial_emotion_timelines, fig.width=6, fig.asp=2}
+
+ppl <- c("j59m5fjj", "j59m2hq1", "j58ihqdp", "j58ig5vm", "j59m5zpw", "j59lxylj")
+
+names(emo)
+  
+
+
+
+
+joined %>% 
+  filter(key==ppl[1]) %>% 
+  ggplot(aes(x=time, y=expressions_lipStretch)) +
+    geom_rect(aes(fill = rawError),
+        xmin = -Inf,xmax = Inf,
+        ymin = -Inf,ymax = Inf, alpha = 0.1) +
+    scale_fill_gradient2() +
+    geom_line() +
+    facet_wrap(~ num, scales = "free_x", ncol=4)
+
+```
+
+```{r trial_emotion_plots, fig.width=6, fig.asp=0.618}
 
 grouped %>% 
-  filter(chartType=="Bar") %>% 
-  ggplot( aes(x=mean_engagement, y=logError) ) +
+  ggplot( aes(x=var_jaw_drop, y=abs(rawError)) ) +
     geom_point() +
-    stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) +
-    geom_smooth(method=lm) 
+#    stat_summary(fun.data="mean_cl_boot", colour="red", size=0.5) +
+    geom_smooth(method=lm) +
+    facet_grid(.~chartType)
+
+# correlation summary
+chartonly <- grouped %>% filter(chartType=="Bubble")
+cor( chartonly$mean_jaw_drop, abs(chartonly$rawError) )
+# fit summary variance and valence
+fit <- lm(abs(rawError) ~ mean_jaw_drop, data=chartonly)
+summary(fit)
 
 grouped %>% 
   ggplot( aes(x=num, y=logError) ) +
-    geom_line() 
+    geom_point() +
+    geom_smooth(method=lm) 
   
 ```
